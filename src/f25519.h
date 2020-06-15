@@ -10,6 +10,16 @@
 #include <stdint.h>
 #include <string.h>
 
+// bunnie's test functions
+void f25519_mul__hw(uint8_t *o, const uint8_t *a, const uint8_t *b);
+void print_bytearray(const uint8_t *a);
+#undef DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT(...)    printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(...)    do {} while(0) /* Don't do anything in release builds */
+#endif
+
 /* Field elements are represented as little-endian byte strings. All
  * operations have timings which are independent of input data, so they
  * can be safely used for cryptography.
