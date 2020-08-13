@@ -142,8 +142,9 @@ static void test_mul(void)
 #define TEST_EASY 0
 #define TEST_RAND 1
 #define TEST_EDGE 2
+#define TEST_POINT 3
 
-#define TESTCASE TEST_RAND
+#define TESTCASE TEST_POINT
 static void test_newmul(void)
 {
 	uint8_t c[F25519_SIZE];
@@ -151,6 +152,20 @@ static void test_newmul(void)
 	uint8_t e[F25519_SIZE];
 	uint32_t x = random();
 
+#if TESTCASE == TEST_POINT
+	uint8_t a[F25519_SIZE] = {
+	  0x94, 0xc2, 0xf9, 0x3b, 0xb7, 0xe7, 0xe5, 0x78,
+	  0x22, 0x23, 0x00, 0x14, 0x55, 0x41, 0x56, 0x05,
+	  0xb0, 0xfe, 0x1d, 0x61, 0x0d, 0x0b, 0x08, 0xc9,
+	  0x22, 0x3a, 0xc4, 0x55, 0xcd, 0xb0, 0x93, 0x52,
+	};
+	uint8_t b[F25519_SIZE] = {
+	  0x17, 0x0c, 0x1e, 0x93, 0xea, 0x6e, 0x51, 0xc0,
+	  0xcb, 0xf9, 0x48, 0xe7, 0x60, 0x36, 0x1f, 0xaf,
+	  0x65, 0x8d, 0xf2, 0xe9, 0x36, 0xd2, 0x71, 0x00,
+	  0x94, 0x56, 0x48, 0x55, 0x1c, 0xe9, 0x48, 0x1d,
+	};
+#endif	
 #if TESTCASE == TEST_RAND
         uint8_t a[F25519_SIZE];
 	uint8_t b[F25519_SIZE];
@@ -250,6 +265,8 @@ static void test_newmul(void)
 	assert(f25519_eq(d, check));
 	}
 	assert(0);
+#elif TESTCASE == TEST_POINT
+	assert(0);
 #endif
 	
 	f25519_mul(e, a, b);
@@ -258,6 +275,17 @@ static void test_newmul(void)
 	f25519_normalize(d);
 	f25519_normalize(e);
 
+	if( !f25519_eq(c, d) ) {
+	  printf("failed case:\n");
+	  printf("a:\n");
+	  print_bytearray_nodebug(a);
+	  printf("b:\n");
+	  print_bytearray_nodebug(b);
+	  printf("a*b:\n");
+	  print_bytearray_nodebug(c);
+	  printf("hardware returned:\n");
+	  print_bytearray_nodebug(d);
+	}
 	assert(f25519_eq(c, d));
 	assert(f25519_eq(d, e));
 }
@@ -369,7 +397,7 @@ int main(void)
 		test_mul();
 
 	printf("test_newmul\n");
-	for (i = 0; i < 400000; i++) {
+	for (i = 0; i < 4000000; i++) {
 	  //printf("iteration: %d\n", i);
 	  test_newmul();
 	}

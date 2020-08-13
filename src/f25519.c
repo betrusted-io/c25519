@@ -173,6 +173,21 @@ void print_bytearray(const uint8_t *a) {
   DEBUG_PRINT("\n");
 }
 
+void print_bytearray_nodebug(const uint8_t *a) {
+  for( int i = F25519_SIZE-1; i >= 0; i-- ) {
+    printf("%02x", a[i]);
+    if( (i % 4) == 0 )
+      printf(" ");
+  }
+  printf("\n");
+  for( int i = 0; i < F25519_SIZE; i++ ) {
+    if( (i % 8) == 0 )
+      printf("\n");
+    printf("0x%02x, ", a[i]);
+  }
+  printf("\n");
+}
+
 void print_dsp17(operand a) {
 #ifndef DEBUG
   (void) a;
@@ -211,6 +226,32 @@ void unpack17(const operand in, uint8_t *out) {
        out[i / F25519_BITWIDTH] |= (1 << (i % F25519_BITWIDTH));
      }
    }
+}
+
+void f25519_add__hw(uint8_t *r, const uint8_t *a_c, const uint8_t *b_c) {
+   uint8_t a[F25519_SIZE];
+   uint8_t b[F25519_SIZE];
+  
+   // copy const inputs to variable array
+   for(int i = 0; i < F25519_SIZE; i++) {
+     a[i] = a_c[i];
+     b[i] = b_c[i];
+   }
+   
+   f25519_normalize(a);
+   f25519_normalize(b);
+
+   operand a_dsp;
+   operand b_dsp;
+   operand p;
+   
+   pack17(a, a_dsp);
+   pack17(b, b_dsp);
+
+   for(int i=0; i < 15; i++ ) {
+     p[i] = a[i] + b[i];
+   }
+   
 }
 
 void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
@@ -263,7 +304,7 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
    int prop_iteration = 0;
    int had_overflow = 0;
    operand prop;
-   while( prop_iteration < 3 ) { // do it thrice even if we don't have to, because constant time
+   //   while( prop_iteration < 2 ) { // do it thrice even if we don't have to, because constant time
      // first time to propagate the raw carry
      // second time to catch if the carry propagate carried
      // third time to propagate the case of the 2^255-19 <= result <= 2^255
@@ -287,6 +328,10 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
      DEBUG_PRINT("**prop:\n");
      print_dsp17(prop);
 
+     if( (prop[14] >> 17) != 0 ) {
+       prop[0] += 19;
+     }
+     
      // propagate the carries
      for(int i = 0; i < 15; i++) {
        if( i+1 < 15 ) {
@@ -297,40 +342,32 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
      DEBUG_PRINT("**carry:\n");
      print_dsp17(prop);
      
-     if( ((prop[14] >> 17) != 0) && (prop_iteration < 2) ) {
-       // note we expect overflow on the third iteration if we hit the special case
-       had_overflow = 1;
-     }
-     
      // prep for the next iteration
      for(int i = 0; i < 15; i++ ) {
        p[i] = prop[i];
      }
    
-     // on second iteration, check special case of 2^255 >= result > 2^255 - 19
-     if( prop_iteration == 1 ) {
-       int special_case = 1;
-       for( int i = 1; i < 15; i++) {
-	 if(p[i] != 0x1ffff)
-	   special_case = 0;
-       }
-       if(special_case) {
-	 DEBUG_PRINT("maybe special case\n");
-	 if( p[0] >= 0x1ffed ) { // p % 2^255-19 => 0. >= or > doesn't matter b/c 0x7ff..fed wraps to 0
-	   printf("special case caught!\n");
-	   p[0] = p[0] + 0x13; // push to the next modulus
+     // check special case of 2^255 >= result > 2^255 - 19
+     int special_case = 1;
+     for( int i = 1; i < 15; i++) {
+       if(p[i] != 0x1ffff)
+	 special_case = 0;
+     }
+     if(special_case) {
+       DEBUG_PRINT("maybe special case\n");
+       if( p[0] >= 0x1ffed ) { // p % 2^255-19 => 0. >= or > doesn't matter b/c 0x7ff..fed wraps to 0
+	 printf("special case caught!\n");
+	 p[0] = p[0] + 19; // push to the next modulus
+	 for( int i = 1; i < 15; i++ ) {
+	   p[i] = p[i] + 1; // propagate carries
 	 }
        }
      }
-     prop_iteration++;
+     //     prop_iteration++;
 
-   }
+     //   }
 
-   if( had_overflow ) {
-     printf("needs more than two propagate iterations.\n");
-   }
-
-   unpack17(prop, o);
+   unpack17(p, o);
 }
 
 void f25519_mul__distinct(uint8_t *r, const uint8_t *a, const uint8_t *b)
