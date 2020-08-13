@@ -144,7 +144,7 @@ static void test_mul(void)
 #define TEST_EDGE 2
 #define TEST_POINT 3
 
-#define TESTCASE TEST_POINT
+#define TESTCASE TEST_RAND
 static void test_newmul(void)
 {
 	uint8_t c[F25519_SIZE];

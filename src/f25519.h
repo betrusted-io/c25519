@@ -15,7 +15,7 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a, const uint8_t *b);
 void print_bytearray(const uint8_t *a);
 #define DEBUG
 #ifdef DEBUG
-#define DEBUG_PRINT(...)   /*do {} while(0)*/ printf(__VA_ARGS__)
+#define DEBUG_PRINT(...)   do {} while(0)/* printf(__VA_ARGS__) */
 #else
 #define DEBUG_PRINT(...)    do {} while(0) /* Don't do anything in release builds */
 #endif

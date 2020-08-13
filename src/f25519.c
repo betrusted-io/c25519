@@ -304,7 +304,7 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
    int prop_iteration = 0;
    int had_overflow = 0;
    operand prop;
-   //   while( prop_iteration < 2 ) { // do it thrice even if we don't have to, because constant time
+   while( prop_iteration < 2 ) { // do it twice even if we don't have to, because constant time
      // first time to propagate the raw carry
      // second time to catch if the carry propagate carried
      // third time to propagate the case of the 2^255-19 <= result <= 2^255
@@ -328,10 +328,6 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
      DEBUG_PRINT("**prop:\n");
      print_dsp17(prop);
 
-     if( (prop[14] >> 17) != 0 ) {
-       prop[0] += 19;
-     }
-     
      // propagate the carries
      for(int i = 0; i < 15; i++) {
        if( i+1 < 15 ) {
@@ -346,28 +342,34 @@ void f25519_mul__hw(uint8_t *o, const uint8_t *a_c, const uint8_t *b_c) {
      for(int i = 0; i < 15; i++ ) {
        p[i] = prop[i];
      }
-   
-     // check special case of 2^255 >= result > 2^255 - 19
-     int special_case = 1;
-     for( int i = 1; i < 15; i++) {
-       if(p[i] != 0x1ffff)
-	 special_case = 0;
-     }
-     if(special_case) {
-       DEBUG_PRINT("maybe special case\n");
-       if( p[0] >= 0x1ffed ) { // p % 2^255-19 => 0. >= or > doesn't matter b/c 0x7ff..fed wraps to 0
-	 printf("special case caught!\n");
-	 p[0] = p[0] + 19; // push to the next modulus
-	 for( int i = 1; i < 15; i++ ) {
-	   p[i] = p[i] + 1; // propagate carries
-	 }
+
+     if( prop_iteration == 0 ) {
+       // check special case of 2^255 >= result > 2^255 - 19
+       int special_case = 1;
+       for( int i = 1; i < 15; i++) {
+	 if(p[i] != 0x1ffff)
+	   special_case = 0;
+       }
+       if(special_case) {
+	 DEBUG_PRINT("maybe special case\n");
+	 if( p[0] >= 0x1ffed ) { // p % 2^255-19 => 0. >= or > doesn't matter b/c 0x7ff..fed wraps to 0
+	   printf("special case caught!\n");
+	   p[0] = p[0] + 19; // push to the next modulus
+	   //for( int i = 1; i < 15; i++ ) {
+	   //  p[i] = p[i] + 1; // propagate carries
+	   //}
+	 } 
+       } else if( p[14] & 0x20000 ) {
+	 p[0] = p[0] + 19;
+	 p[14] &= 0x1ffff;
        }
      }
-     //     prop_iteration++;
+     
+     prop_iteration++;
 
-     //   }
+   }
 
-   unpack17(p, o);
+   unpack17(prop, o);
 }
 
 void f25519_mul__distinct(uint8_t *r, const uint8_t *a, const uint8_t *b)
